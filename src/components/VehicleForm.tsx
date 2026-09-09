@@ -6,13 +6,12 @@ import { useState } from "react";
 type V = {
   id?: number; plate: string; brand: string; model: string; year: string;
   vehicleClass: string; transmission: string; fuelType: string; seats: string;
-  dailyRate: string; dailyKmLimit: string; extraKmRate: string;
+  dailyRate: string; dailyKmLimit: string; extraKmRate: string; marketValue: string;
 };
-
 const EMPTY: V = {
   plate: "", brand: "", model: "", year: "1402", vehicleClass: "economy",
   transmission: "automatic", fuelType: "petrol", seats: "5",
-  dailyRate: "", dailyKmLimit: "250", extraKmRate: "",
+  dailyRate: "", dailyKmLimit: "250", extraKmRate: "", marketValue: "",
 };
 
 export default function VehicleForm({ initial }: { initial?: V }) {
@@ -79,6 +78,13 @@ export default function VehicleForm({ initial }: { initial?: V }) {
         <div><label className="label">اجاره روزانه (تومان)</label><input className="input mono" placeholder="2500000" value={v.dailyRate} onChange={set("dailyRate")} /></div>
         <div><label className="label">سقف کیلومتر روزانه</label><input className="input mono" value={v.dailyKmLimit} onChange={set("dailyKmLimit")} /></div>
         <div><label className="label">نرخ کیلومتر اضافه (تومان)</label><input className="input mono" placeholder="5000" value={v.extraKmRate} onChange={set("extraKmRate")} /></div>
+      </div>
+    
+      <div className="mt-3.5 grid gap-3.5 sm:grid-cols-3">
+        <div>
+          <label className="label">ارزش روز خودرو (تومان)</label>
+          <input className="input mono" placeholder="500000000" value={v.marketValue} onChange={set("marketValue")} />
+        </div>
       </div>
 
       {isEdit && (

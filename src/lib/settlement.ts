@@ -139,3 +139,58 @@ export function responseDeadlineFrom(issuedAt: Date, hours: number): Date {
 export function isResponseDeadlinePassed(deadline: Date | null, now: Date): boolean {
   return deadline !== null && now.getTime() > deadline.getTime();
 }
+// ─────────────── تسویه نهایی ودیعه ───────────────
+
+export type DepositSettlementStatus = "fully_refunded" | "partially_refunded" | "forfeited";
+
+export interface SettleDepositInput {
+  damageTotal: number;
+  rentalCreditTotal: number;
+  depositAmount: number;
+}
+
+export interface SettleDepositResult {
+  depositStatus: DepositSettlementStatus;
+  /** مبلغی که واقعاً از ودیعه کسر می‌شود — هیچ‌وقت از خود ودیعه بیشتر نمی‌شود */
+  deductedFromDeposit: number;
+  /** مابقی ودیعه که به مستأجر برمی‌گردد */
+  depositRefund: number;
+  /** بخشی از خسارت که ودیعه کفایتش را نمی‌دهد — بدهی مستأجر */
+  shortfall: number;
+  /** اعتبار روزهای استفاده‌نشده — از منبع پرداخت اجاره، نه ودیعه؛ هرگز خالص نمی‌شود */
+  rentalCreditPayout: number;
+}
+
+/**
+ * تسویه نهایی — استوری ۶.۱.
+ *
+ * سه حالت:
+ *   سهم کاربر = صفر    → استرداد کامل ودیعه
+ *   سهم کاربر < ودیعه  → کسر و استرداد مابقی
+ *   سهم کاربر ≥ ودیعه  → کسر کامل ودیعه، مابقی بدهی مستقل می‌شود
+ *
+ * اعتبار روزهای استفاده‌نشده از منبعی جدا (پرداخت اجاره) می‌آید و
+ * هیچ‌وقت با ودیعه خالص نمی‌شود — حتی وقتی ودیعه کاملاً سوخته باشد.
+ */
+export function settleDeposit(input: SettleDepositInput): SettleDepositResult {
+  const { damageTotal, rentalCreditTotal, depositAmount } = input;
+
+  const deductedFromDeposit = damageTotal <= 0 ? 0 : Math.min(damageTotal, depositAmount);
+  const depositRefund = Math.max(depositAmount - damageTotal, 0);
+  const shortfall = Math.max(damageTotal - depositAmount, 0);
+
+  const depositStatus: DepositSettlementStatus =
+    damageTotal === 0
+      ? "fully_refunded"
+      : damageTotal > depositAmount
+        ? "forfeited"
+        : "partially_refunded";
+
+  return {
+    depositStatus,
+    deductedFromDeposit,
+    depositRefund,
+    shortfall,
+    rentalCreditPayout: rentalCreditTotal,
+  };
+}

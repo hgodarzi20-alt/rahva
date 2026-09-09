@@ -20,7 +20,8 @@ export default async function EditVehiclePage({ params }: { params: { id: string
             id: v.id, plate: v.plate, brand: v.brand, model: v.model, year: String(v.year),
             vehicleClass: v.vehicleClass, transmission: v.transmission, fuelType: v.fuelType,
             seats: String(v.seats), dailyRate: String(v.dailyRate),
-            dailyKmLimit: String(v.dailyKmLimit), extraKmRate: String(v.extraKmRate),
+              dailyKmLimit: String(v.dailyKmLimit), extraKmRate: String(v.extraKmRate),
+            marketValue: String(v.marketValue),
           }}
         />
       </main>

@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   }
 
   const b = await req.json();
-  const required = ["plate", "brand", "model", "year", "vehicleClass", "transmission", "fuelType", "seats", "dailyRate", "dailyKmLimit", "extraKmRate"];
+  const required = ["plate", "brand", "model", "year", "vehicleClass", "transmission", "fuelType", "seats", "dailyRate", "dailyKmLimit", "extraKmRate", "marketValue"];
   for (const f of required) {
     if (b[f] === undefined || b[f] === null || b[f] === "") {
       return NextResponse.json({ error: "همه‌ی فیلدها الزامی است." }, { status: 400 });
