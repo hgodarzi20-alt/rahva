@@ -1,0 +1,666 @@
+// سامانه اجاره خودرو راهوا — نسخه ۲
+// نسخه ۱: مدل داده مطابق سند تحویل به توسعه (dev-handoff-v1)
+// نسخه ۲: مدیریت حادثه، ودیعه، احراز هویت راننده
+//
+// بخش‌های نسخه ۱ دست‌نخورده مانده‌اند. هر افزوده نسخه ۲ با « V2 » علامت خورده.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────── شمارشی‌ها ───────────────
+
+enum Role {
+  customer
+  operator
+  fleet_manager
+}
+
+enum BookingStatus {
+  pending_payment
+  confirmed
+  active
+  completed
+  cancelled
+  failed
+  no_show
+  closed_with_incident // V2
+}
+
+enum VehicleStatus {
+  available
+  maintenance
+  under_repair // V2 — تعمیر ناشی از حادثه
+}
+
+enum VehicleClass {
+  economy
+  standard
+  suv
+  luxury
+}
+
+enum Transmission {
+  manual
+  automatic
+}
+
+enum FuelType {
+  petrol
+  diesel
+  hybrid
+}
+
+enum PaymentResult {
+  succeeded
+  failed
+}
+
+enum EventType {
+  search_performed
+  car_viewed
+  booking_started
+  payment_attempted
+  booking_confirmed
+  booking_cancelled
+  car_picked_up
+  car_returned
+  incident_report_started
+  incident_reported
+  incident_documented
+  assistance_requested
+  estimate_issued
+  estimate_accepted
+  estimate_disputed
+  incident_settled
+}
+
+// ─────────────── شمارشی‌های V2 ───────────────
+
+enum IncidentStatus {
+  reported_injury
+  reported
+  documented
+  assistance_dispatched
+  vehicle_recovered
+  under_assessment
+  estimate_issued
+  accepted
+  disputed
+  resolved
+  settled
+  closed
+}
+
+enum PoliceReportStatus {
+  uploaded
+  pending
+  not_obtained
+}
+
+enum IncidentType {
+  vehicle_collision
+  obstacle_collision
+}
+
+enum ObstacleOwnership {
+  unowned
+  third_party
+}
+
+enum RecoveryMethod {
+  user_delivers
+  agent_pickup
+}
+
+enum FaultClaim {
+  self
+  other_party
+  unknown
+}
+
+enum PolicePresence {
+  awaiting
+  present
+  absent
+}
+
+enum DepositStatus {
+  held
+  suspended
+  partially_refunded
+  fully_refunded
+  forfeited
+}
+
+enum DebtStatus {
+  outstanding
+  paid
+  written_off
+}
+
+
+enum InvoiceItemType {
+  repair_deductible
+  assistance_towing
+  vehicle_downtime
+  parking
+  rental_credit
+}
+
+enum PayoutType {
+  deposit_refund
+  rental_credit
+}
+
+enum PayoutStatus {
+  pending
+  paid
+  failed
+}
+
+enum RentalPhase {
+  checkout
+  checkin
+}
+
+enum NotificationKind {
+  incident_created
+  estimate_issued
+  settlement_done
+  normal_refund
+}
+
+// ─────────────── جداول ───────────────
+
+model User {
+  id            Int       @id @default(autoincrement())
+  mobile        String    @unique
+  passwordHash  String
+  fullName      String?
+  birthDate     DateTime?
+  licenseNumber String?
+  role          Role      @default(customer)
+  createdAt     DateTime  @default(now())
+
+  bookings   Booking[]   
+  debts      Debt[]
+  checkedOut Rental[]  @relation("CheckedOutBy")
+  checkedIn  Rental[]  @relation("CheckedInBy")
+  events     Event[]
+
+  incidents        IncidentCase[]
+  resolvedDisputes Dispute[]       @relation("DisputeResolvedBy")
+  approvedPayouts  Payout[]        @relation("PayoutApprovedBy")
+  incidentEvents   IncidentEvent[]
+}
+
+model Branch {
+  id       Int       @id @default(autoincrement())
+  name     String
+  city     String
+  opensAt  String    @default("08:00")
+  closesAt String    @default("20:00")
+  vehicles Vehicle[]
+  bookings Booking[]
+}
+
+model Vehicle {
+  id           Int           @id @default(autoincrement())
+  plate        String        @unique
+  brand        String
+  model        String
+  year         Int
+  vehicleClass VehicleClass
+  transmission Transmission
+  fuelType     FuelType
+  seats        Int
+  dailyRate    Int
+  dailyKmLimit Int
+  extraKmRate  Int
+  status       VehicleStatus @default(available)
+  imageUrl     String?
+  branchId     Int
+  createdAt    DateTime      @default(now())
+
+  /// V2 — ارزش روز خودرو (تومان). مبنای محاسبه ودیعه.
+  marketValue Int
+
+  branch    Branch         @relation(fields: [branchId], references: [id])
+  bookings  Booking[]
+  incidents IncidentCase[]
+
+  @@index([status])
+  @@index([vehicleClass])
+}
+
+model Booking {
+  id        Int    @id @default(autoincrement())
+  code      String @unique
+  userId    Int
+  vehicleId Int
+  branchId  Int
+
+  pickupAt  DateTime
+  dropoffAt DateTime
+  days      Int
+
+  status        BookingStatus @default(pending_payment)
+  lockExpiresAt DateTime?
+
+  dailyRateSnapshot    Int
+  taxRateSnapshot      Int
+  dailyKmLimitSnapshot Int
+  extraKmRateSnapshot  Int
+
+  rentAmount  Int
+  taxAmount   Int
+  totalAmount Int
+
+  refundAmount  Int?
+  penaltyAmount Int?
+
+  driverName          String
+  driverBirthDate     DateTime
+  driverLicenseNumber String
+
+  // ─── V2 — احراز هویت راننده ───
+  /// HMAC-SHA256 کد ملی — قطعی و ایندکس‌دار، برای جستجوی سابقه
+  driverNationalIdHash String?
+  /// AES-256-GCM کد ملی — فقط برای نمایش به اپراتور
+  driverNationalIdEnc  String?
+  driverLicenseExpiry  DateTime?
+  refundIban           String?
+  refundBankName       String?
+
+  /// V2 — عکس لحظه رزرو از ۱۰٪ ارزش روز خودرو
+  depositAmountSnapshot Int?
+
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+  cancelledAt DateTime?
+
+  user     User      @relation(fields: [userId], references: [id])
+  vehicle  Vehicle   @relation(fields: [vehicleId], references: [id])
+  branch   Branch    @relation(fields: [branchId], references: [id])
+  payments Payment[]
+  rental   Rental?
+  events   Event[]
+
+  deposit  Deposit?
+    debt     Debt?
+  incident IncidentCase?
+  payouts  Payout[]
+
+  @@index([status])
+  @@index([pickupAt])
+  @@index([dropoffAt])
+  @@index([vehicleId, status])
+  @@index([driverNationalIdHash])
+}
+
+model Payment {
+  id          Int           @id @default(autoincrement())
+  bookingId   Int
+  amount      Int
+  result      PaymentResult
+  attemptedAt DateTime      @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+/// در نسخه ۲ همین رکورد نقش «برگه وضعیت پایه» را هم بازی می‌کند
+model Rental {
+  id        Int @id @default(autoincrement())
+  bookingId Int @unique
+
+  checkoutAt       DateTime
+  checkoutOdometer Int
+  checkoutFuel     String
+  checkoutNotes    String?
+  checkoutById     Int
+  licenseChecked   Boolean @default(false)
+  idChecked        Boolean @default(false)
+  contractSigned   Boolean @default(false)
+
+  /// V2 — تأیید کاربر بر برگه وضعیت؛ بدون آن سفر فعال نمی‌شود
+  conditionConfirmedByUserAt DateTime?
+
+  checkinAt       DateTime?
+  checkinOdometer Int?
+  checkinFuel     String?
+  checkinById     Int?
+
+  kmDriven         Int?
+  kmOverLimit      Int?
+  extraKmFee       Int?
+  lateHours        Int?
+  lateDays         Int?
+  lateFee          Int?
+  chargesTotal     Int?
+  chargesCollected Boolean @default(false)
+
+  booking    Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  checkoutBy User    @relation("CheckedOutBy", fields: [checkoutById], references: [id])
+  checkinBy  User?   @relation("CheckedInBy", fields: [checkinById], references: [id])
+
+  media   RentalMedia[]
+  damages DamageItem[]
+}
+
+/// V2 — مدرک تصویری وضعیت خودرو. تعداد و زاویه اجباری نیست.
+model RentalMedia {
+  id       Int         @id @default(autoincrement())
+  rentalId Int
+  phase    RentalPhase
+
+  /// کلید داخلی ذخیره‌سازی؛ از روت احراز هویت‌شده سرو می‌شود
+  storageKey String
+  mimeType   String
+  sizeBytes  Int
+  createdAt  DateTime @default(now())
+
+  rental Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  @@index([rentalId, phase])
+}
+
+/// V2 — قلم خسارت. اقلام فاز checkin مبلغ می‌گیرند و مجموعشان
+/// gross_repair_estimate را می‌سازد.
+model DamageItem {
+  id       Int         @id @default(autoincrement())
+  rentalId Int
+  phase    RentalPhase
+
+  title          String
+  location       String
+  estimateAmount Int?
+
+  createdAt DateTime @default(now())
+
+  rental Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  @@index([rentalId, phase])
+}
+
+// ─────────────── V2 — ودیعه ───────────────
+
+model Deposit {
+  id        Int           @id @default(autoincrement())
+  bookingId Int           @unique
+  amount    Int
+  status    DepositStatus @default(held)
+
+  collectedAt DateTime?
+  releasedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+/// V2 — مازاد خسارت بر ودیعه. تا تسویه، رزرو جدید مسدود می‌شود.
+model Debt {
+  id         Int        @id @default(autoincrement())
+  bookingId  Int        @unique
+  incidentId Int        @unique
+  userId     Int
+  amount     Int
+  status     DebtStatus @default(outstanding)
+
+  dueAt  DateTime
+  paidAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+}
+
+// ─────────────── V2 — پرونده حادثه ───────────────
+
+model IncidentCase {
+  id Int @id @default(autoincrement())
+
+  trackingCode String @unique
+
+  bookingId Int @unique
+  vehicleId Int
+  userId    Int
+
+  status IncidentStatus @default(reported)
+  type   IncidentType?
+
+  isDrivable     Boolean?
+  recoveryMethod RecoveryMethod?
+
+  occurredAt  DateTime?
+  description String?
+
+  latitude  Float?
+  longitude Float?
+  address   String?
+
+  // کروکی — محور مستقل از وضعیت پرونده
+  policeReportStatus   PoliceReportStatus?
+  policeReportFileKey  String?
+  policeReportDeadline DateTime?
+  riskAcceptedAt       DateTime?
+
+  policePresence        PolicePresence @default(awaiting)
+    /// V2 — پلیس خودرو را به پارکینگ منتقل کرده؛ تا ترخیص، بازگرداندن ممکن نیست
+  policeImpounded Boolean @default(false)
+  assistanceRequestedAt DateTime?
+  vehicleRecoveredAt    DateTime?
+
+  /// ادعای کاربر درباره مقصر — ثبت می‌شود ولی مبنای مالی نیست
+  faultClaim FaultClaim?
+  /// V2 — تعیین مقصر توسط اپراتور در مرحله بازرسی؛ مبنای مسیر مالی صورت‌حساب
+  confirmedFault FaultClaim?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  booking      Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vehicle      Vehicle           @relation(fields: [vehicleId], references: [id])
+  user         User              @relation(fields: [userId], references: [id])
+  counterparty CounterpartyInfo?
+  obstacle     ObstacleInfo?
+  photos       IncidentPhoto[]
+  invoice      DamageInvoice?
+  dispute      Dispute?
+  auditEvents  IncidentEvent[]
+
+  @@index([status])
+  @@index([userId])
+}
+
+model CounterpartyInfo {
+  id         Int @id @default(autoincrement())
+  incidentId Int @unique
+
+  fullName      String?
+  nationalIdEnc String?
+  phone         String?
+  plateNumber   String?
+  insurerName   String?
+  policyNumber  String?
+  policyValidTo DateTime?
+
+  incident IncidentCase @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+}
+
+model ObstacleInfo {
+  id                 Int               @id @default(autoincrement())
+  incidentId         Int               @unique
+  ownership          ObstacleOwnership
+  ownerNote          String?
+  flaggedForFollowUp Boolean           @default(false)
+
+  incident IncidentCase @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+}
+
+model IncidentPhoto {
+  id         Int      @id @default(autoincrement())
+  incidentId Int
+  storageKey String
+  mimeType   String
+  sizeBytes  Int
+  hint       String?
+  createdAt  DateTime @default(now())
+
+  incident IncidentCase @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+}
+
+// ─────────────── V2 — صورت‌حساب و تسویه ───────────────
+
+model DamageInvoice {
+  id         Int @id @default(autoincrement())
+  incidentId Int @unique
+
+  /// مجموع اقلام خسارت فاز checkin — محاسبه‌شده، نه دستی
+  grossRepairEstimate Int
+
+  policeReportWaived Boolean @default(false)
+
+  issuedAt         DateTime?
+  responseDeadline DateTime?
+  autoAcceptedAt   DateTime?
+  acceptedAt       DateTime?
+
+  createdById Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  incident IncidentCase  @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  items    InvoiceItem[]
+}
+
+model InvoiceItem {
+  id                Int             @id @default(autoincrement())
+  invoiceId         Int
+  type              InvoiceItemType
+  label             String
+  /// منفی برای rental_credit، مثبت برای بقیه (تومان)
+  amount            Int
+  basis             String?
+  isSystemGenerated Boolean         @default(false)
+
+  invoice DamageInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model Dispute {
+  id         Int @id @default(autoincrement())
+  incidentId Int @unique
+
+  reason        String
+  disputedItems Int[]
+  evidenceKeys  String[]
+
+  submittedAt  DateTime  @default(now())
+  resolvedAt   DateTime?
+  resolvedById Int?
+  managerNote  String?
+
+  incident   IncidentCase @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  resolvedBy User?        @relation("DisputeResolvedBy", fields: [resolvedById], references: [id])
+}
+
+/// دستور واریز — دو نوع، چون منبع مالی‌شان متفاوت است
+model Payout {
+  id        Int          @id @default(autoincrement())
+  bookingId Int
+  type      PayoutType
+  amount    Int
+  iban      String
+  status    PayoutStatus @default(pending)
+
+  approvedById Int?
+  paidAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  booking    Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  approvedBy User?   @relation("PayoutApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([bookingId])
+  @@index([status])
+}
+
+// ─────────────── V2 — ممیزی و اطلاع‌رسانی ───────────────
+
+model IncidentEvent {
+  id         Int      @id @default(autoincrement())
+  incidentId Int
+  type       String
+  fromValue  String?
+  toValue    String?
+  actorId    Int?
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  incident IncidentCase @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  actor    User?        @relation(fields: [actorId], references: [id])
+
+  @@index([incidentId, createdAt])
+}
+
+model NotificationLog {
+  id         Int              @id @default(autoincrement())
+  kind       NotificationKind
+  recipient  String
+  body       String
+  bookingId  Int?
+  incidentId Int?
+  sentAt     DateTime         @default(now())
+
+  @@index([recipient])
+  @@index([incidentId])
+}
+
+model Event {
+  id        Int       @id @default(autoincrement())
+  type      EventType
+  userId    Int?
+  bookingId Int?
+  vehicleId Int?
+  payload   Json?
+  createdAt DateTime  @default(now())
+
+  user    User?    @relation(fields: [userId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id])
+
+  @@index([type, createdAt])
+  @@index([createdAt])
+}
+
+/// کلیدهای V2:
+///   deposit.percent_of_market_value       = "10"
+///   franchise.percent                     = "10"
+///   police_report.waiver_ceiling_toman    = "53300000"
+///   parking.daily_rate_toman              = "450000"
+///   deadline.initial_report_hours         = "2"
+///   deadline.documentation_hours          = "24"
+///   deadline.police_report_days           = "7"
+///   deadline.invoice_response_hours       = "72"
+///   driver.min_age_years                  = "20"
+///   driver.license_validity_margin_months = "6"
+///   deadline.debt_payment_days            = "14"
+model Setting {
+  key   String  @id
+  value String
+  note  String?
+}

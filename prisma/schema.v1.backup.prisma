@@ -1,0 +1,241 @@
+// سامانه اجاره خودرو راهوا — نسخه ۱
+// مدل داده مطابق سند تحویل به توسعه (dev-handoff-v1)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────── شمارشی‌ها ───────────────
+
+enum Role {
+  customer
+  operator
+  fleet_manager
+}
+
+/// هفت وضعیت مصوب ماشین حالت رزرو
+enum BookingStatus {
+  pending_payment
+  confirmed
+  active
+  completed
+  cancelled
+  failed
+  no_show
+}
+
+/// «در اجاره» عمداً اینجا نیست — از روی رزرو فعال محاسبه می‌شود
+enum VehicleStatus {
+  available
+  maintenance
+}
+
+enum VehicleClass {
+  economy
+  standard
+  suv
+  luxury
+}
+
+enum Transmission {
+  manual
+  automatic
+}
+
+enum FuelType {
+  petrol
+  diesel
+  hybrid
+}
+
+enum PaymentResult {
+  succeeded
+  failed
+}
+
+enum EventType {
+  search_performed
+  car_viewed
+  booking_started
+  payment_attempted
+  booking_confirmed
+  booking_cancelled
+  car_picked_up
+  car_returned
+}
+
+// ─────────────── جداول ───────────────
+
+model User {
+  id            Int       @id @default(autoincrement())
+  mobile        String    @unique
+  passwordHash  String
+  fullName      String?
+  birthDate     DateTime?
+  licenseNumber String?
+  role          Role      @default(customer)
+  createdAt     DateTime  @default(now())
+
+  bookings     Booking[]
+  checkedOut   Rental[]  @relation("CheckedOutBy")
+  checkedIn    Rental[]  @relation("CheckedInBy")
+  events       Event[]
+}
+
+/// یک ردیف در نسخه ۱. در نسخه ۳ چند ردیف می‌شود.
+model Branch {
+  id        Int      @id @default(autoincrement())
+  name      String
+  city      String
+  opensAt   String   @default("08:00")
+  closesAt  String   @default("20:00")
+  vehicles  Vehicle[]
+  bookings  Booking[]
+}
+
+model Vehicle {
+  id            Int           @id @default(autoincrement())
+  plate         String        @unique
+  brand         String
+  model         String
+  year          Int
+  vehicleClass  VehicleClass
+  transmission  Transmission
+  fuelType      FuelType
+  seats         Int
+  dailyRate     Int // تومان
+  dailyKmLimit  Int
+  extraKmRate   Int // تومان به ازای هر کیلومتر
+  status        VehicleStatus @default(available)
+  imageUrl      String?
+  branchId      Int
+  createdAt     DateTime      @default(now())
+
+  branch   Branch    @relation(fields: [branchId], references: [id])
+  bookings Booking[]
+
+  @@index([status])
+  @@index([vehicleClass])
+}
+
+model Booking {
+  id       Int           @id @default(autoincrement())
+  code     String        @unique
+  userId   Int
+  vehicleId Int
+  branchId Int
+
+  pickupAt  DateTime
+  dropoffAt DateTime
+  days      Int
+
+  status        BookingStatus @default(pending_payment)
+  lockExpiresAt DateTime?
+
+  // تصویر لحظه‌ی رزرو — تغییر نرخ روی رزروهای ثبت‌شده اثر ندارد (استوری ۵.۲ بند ۲)
+  dailyRateSnapshot    Int
+  taxRateSnapshot      Int // درصد × ۱۰۰ ، مثلا ۱۰۰۰ یعنی ۱۰٪
+  dailyKmLimitSnapshot Int
+  extraKmRateSnapshot  Int
+
+  rentAmount  Int
+  taxAmount   Int
+  totalAmount Int
+
+  /// در لغو: کل مبلغ. در عدم مراجعه: کل منهای یک روز اجاره.
+  refundAmount  Int?
+  penaltyAmount Int?
+
+  driverName          String
+  driverBirthDate     DateTime
+  driverLicenseNumber String
+
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+  cancelledAt DateTime?
+
+  user     User      @relation(fields: [userId], references: [id])
+  vehicle  Vehicle   @relation(fields: [vehicleId], references: [id])
+  branch   Branch    @relation(fields: [branchId], references: [id])
+  payments Payment[]
+  rental   Rental?
+  events   Event[]
+
+  @@index([status])
+  @@index([pickupAt])
+  @@index([dropoffAt])
+  @@index([vehicleId, status])
+}
+
+model Payment {
+  id          Int           @id @default(autoincrement())
+  bookingId   Int
+  amount      Int
+  result      PaymentResult
+  attemptedAt DateTime      @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+/// رکورد تحویل و بازگشت — یکی به ازای هر رزرو
+model Rental {
+  id        Int @id @default(autoincrement())
+  bookingId Int @unique
+
+  checkoutAt       DateTime
+  checkoutOdometer Int
+  checkoutFuel     String
+  checkoutNotes    String?
+  checkoutById     Int
+  licenseChecked   Boolean @default(false)
+  idChecked        Boolean @default(false)
+  contractSigned   Boolean @default(false)
+
+  checkinAt       DateTime?
+  checkinOdometer Int?
+  checkinFuel     String?
+  checkinById     Int?
+
+  kmDriven         Int?
+  kmOverLimit      Int?
+  extraKmFee       Int?
+  lateHours        Int?
+  lateDays         Int?
+  lateFee          Int?
+  chargesTotal     Int?
+  chargesCollected Boolean @default(false)
+
+  booking     Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  checkoutBy  User    @relation("CheckedOutBy", fields: [checkoutById], references: [id])
+  checkinBy   User?   @relation("CheckedInBy", fields: [checkinById], references: [id])
+}
+
+model Event {
+  id        Int       @id @default(autoincrement())
+  type      EventType
+  userId    Int?
+  bookingId Int?
+  vehicleId Int?
+  payload   Json?
+  createdAt DateTime  @default(now())
+
+  user    User?    @relation(fields: [userId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id])
+
+  @@index([type, createdAt])
+  @@index([createdAt])
+}
+
+/// قواعد کسب‌وکار بخش ۱۵ سند. در نسخه ۱ رابط کاربری ندارد.
+model Setting {
+  key   String @id
+  value String
+  note  String?
+}
