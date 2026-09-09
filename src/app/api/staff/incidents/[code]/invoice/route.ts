@@ -8,6 +8,7 @@ import {
   type DraftItem, type InvoiceItemType,
 } from "@/lib/settlement";
 import { logEvent } from "@/lib/events";
+import { formatJalali } from "@/lib/jalali";
 
 /**
  * تشکیل و صدور صورت‌حساب — استوری ۵.۲.
@@ -134,7 +135,7 @@ export async function POST(req: Request, { params }: { params: { code: string } 
         data: {
           kind: "estimate_issued",
           recipient: String(incident.userId),
-          body: `رهوا — صورت‌حساب پرونده ${incident.trackingCode} صادر شد.`,
+          body: `رهوا — صورت‌حساب پرونده ${incident.trackingCode} صادر شد. مهلت پاسخ تا ${formatJalali(deadline)}.`,
           bookingId: incident.bookingId,
           incidentId: incident.id,
         },

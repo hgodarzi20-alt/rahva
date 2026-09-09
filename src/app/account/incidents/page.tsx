@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { STATUS_FA, INCIDENT_TYPE_FA, type IncidentStatus } from "@/lib/incident";
+import { CUSTOMER_STATUS_FA, INCIDENT_TYPE_FA, type IncidentStatus } from "@/lib/incident";
 import { totals } from "@/lib/settlement";
 import { toFaDigits, toman, vehicleName } from "@/lib/format";
 import { formatJalali } from "@/lib/jalali";
@@ -46,7 +46,7 @@ export default async function MyIncidentsPage() {
       <article className="card p-5">
         <div className="flex flex-wrap items-center gap-2">
           <Link href={`/incident/${c.trackingCode}`} className="mono font-bold">{c.trackingCode}</Link>
-          <span className="badge">{STATUS_FA[status]}</span>
+          <span className="badge">{CUSTOMER_STATUS_FA[status]}</span>
           {c.policeReportStatus === "not_obtained" && <span className="badge badge-danger">بدون کروکی</span>}
         </div>
 

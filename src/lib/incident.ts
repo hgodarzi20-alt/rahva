@@ -49,6 +49,25 @@ export const STATUS_FA: Record<IncidentStatus, string> = {
   closed: "بسته شد",
 };
 
+/**
+ * وضعیت به زبان ساده برای صفحات مستأجر — استوری ۷.۱ بند ۳.
+ * ۱۲ وضعیت فنی را به همان چهار مرحله‌ای که در PRD نام‌گذاری شده تقلیل می‌دهد.
+ */
+export const CUSTOMER_STATUS_FA: Record<IncidentStatus, string> = {
+  reported_injury: "در انتظار بازرسی",
+  reported: "در انتظار بازرسی",
+  documented: "در انتظار بازرسی",
+  assistance_dispatched: "در انتظار بازرسی",
+  vehicle_recovered: "در انتظار بازرسی",
+  under_assessment: "در حال ارزیابی",
+  estimate_issued: "برآورد صادر شد",
+  accepted: "برآورد صادر شد",
+  disputed: "برآورد صادر شد",
+  resolved: "برآورد صادر شد",
+  settled: "تسویه شد",
+  closed: "تسویه شد",
+};
+
 export const POLICE_REPORT_FA = {
   uploaded: "کروکی دریافت شد",
   pending: "در انتظار کروکی",

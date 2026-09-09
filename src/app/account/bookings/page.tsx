@@ -47,7 +47,7 @@ export default async function MyBookingsPage() {
 
     return (
       <article className="card overflow-hidden">
-              <div className="grid md:grid-cols-[1fr_auto]">
+              <div className="grid md:grid-cols-[1fr_220px]">
 
           <div className="p-4">
             <div className="flex flex-wrap items-center gap-2">

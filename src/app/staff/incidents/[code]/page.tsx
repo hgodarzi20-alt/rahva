@@ -4,6 +4,7 @@ import StaffHeader from "@/components/StaffHeader";
 import InspectionForm from "@/components/InspectionForm";
 import InvoiceBuilder from "@/components/InvoiceBuilder";
 import SettlementPanel from "@/components/SettlementPanel";
+import RecoveryMethodPicker from "@/components/RecoveryMethodPicker";
 import { Row, Section } from "@/components/Row";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
@@ -101,6 +102,18 @@ export default async function StaffIncidentPage({ params }: { params: { code: st
                 {incident.obstacle.ownership === "third_party" ? "متعلق به شخص یا نهاد دیگر" : "بدون مالک مشخص"}
               </Row>
             )}
+            {incident.status !== "reported" && (
+              <Row label="توقیف پلیس">
+                {incident.policeImpounded ? "بله — منتظر ترخیص" : "خیر — خودرو در اختیار مستأجر است"}
+              </Row>
+            )}
+            {incident.status !== "reported" && incident.policeImpounded === false && (
+              <div className="mt-3 border-t border-line-2 pt-3">
+                <label className="label">روش بازگرداندن خودرو — پس از هماهنگی تلفنی</label>
+                <RecoveryMethodPicker code={incident.trackingCode} current={incident.recoveryMethod} />
+              </div>
+            )}
+
             {incident.description && (
               <p className="mt-3 border-t border-line-2 pt-3 text-[13px] text-ink-2">
                 {incident.description}

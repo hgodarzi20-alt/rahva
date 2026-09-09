@@ -40,8 +40,6 @@ export default async function HomePage() {
             <h1 className="text-[30px] font-bold leading-tight">
               خودرو را آنلاین رزرو کنید، سرِ ساعت تحویل بگیرید.
             </h1>
-            <p className="mt-2 text-ink-2">موجودی لحظه‌ای ناوگان، قیمت شفاف، بدون تماس تلفنی.</p>
-
             <div className="mt-6">
               <SearchForm branchName={branch.name} opensAt={branch.opensAt} closesAt={branch.closesAt} />
             </div>

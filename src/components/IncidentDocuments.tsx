@@ -84,6 +84,7 @@ export default function IncidentDocuments({
   const [reportFile, setReportFile] = useState(initialReportKey);
   const [uploadingReport, setUploadingReport] = useState(false);
   const [riskAccepted, setRiskAccepted] = useState(false);
+  const [impounded, setImpounded] = useState<boolean | null>(null);
 
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -165,6 +166,7 @@ export default function IncidentDocuments({
         obstacle: type === "obstacle_collision" ? { ownership, ownerNote } : null,
         policeReportStatus: police,
         riskAccepted: police === "not_obtained" ? riskAccepted : false,
+        policeImpounded: impounded === true,
       }),
     });
     const data = await res.json();
@@ -358,7 +360,9 @@ export default function IncidentDocuments({
 
         {step === "police" && (
           <>
-            <h1 className="text-[21px] font-bold">کروکی یا گزارش انتظامی</h1>
+            <h1 className="text-[21px] font-bold">
+              {type === "vehicle_collision" ? "کروکی" : "گزارش انتظامی"}
+            </h1>
             <p className="mt-2 text-[13px] text-ink-3">
               بدون این سند، بیمه بدنه خسارت را پرداخت نمی‌کند.
             </p>
@@ -371,6 +375,20 @@ export default function IncidentDocuments({
               <Choice selected={police === "not_obtained"} onClick={() => setPolice("not_obtained")}
                 title="تنظیم نشد" hint="افسر حاضر نشد یا صحنه را ترک کردم" />
             </div>
+
+            {police && (
+              <div className="mt-5">
+                <label className="label">آیا پلیس خودرو را به پارکینگ منتقل کرد؟</label>
+                <div className="mt-3 flex flex-col gap-3">
+                  <Choice selected={impounded === false} onClick={() => setImpounded(false)}
+                    title="خیر، خودرو همچنان در اختیار من است"
+                    hint="طبق هماهنگی با پشتیبانی، روش بازگرداندن خودرو مشخص می‌شود." />
+                  <Choice selected={impounded === true} onClick={() => setImpounded(true)}
+                    title="بله، پلیس خودرو را توقیف و به پارکینگ منتقل کرد"
+                    hint="پرونده منتظر ترخیص می‌ماند؛ نیازی نیست خودرو را جایی ببرید." />
+                </div>
+              </div>
+            )}
 
             {police === "uploaded" && (
               <div className="mt-4">
@@ -398,7 +416,7 @@ export default function IncidentDocuments({
 
             <button
               onClick={() => (police === "not_obtained" ? setStep("risk") : submit())}
-              disabled={!police || busy || (police === "uploaded" && !reportFile)}
+              disabled={!police || impounded === null || busy || (police === "uploaded" && !reportFile)}
               className="btn btn-primary btn-lg mt-6"
             >
               {busy ? "در حال ثبت…" : police === "not_obtained" ? "ادامه" : "ثبت نهایی"}

@@ -54,7 +54,7 @@ export default function SearchForm({
 
   return (
     <div className={compact ? "" : "rounded-card border border-line bg-white p-5 shadow-sh2"}>
-      <div className={`grid items-end gap-3 ${compact ? "md:grid-cols-[1fr_1.4fr_auto]" : "md:grid-cols-[1fr_1.6fr_0.7fr_auto]"}`}>
+      <div className={`grid items-start gap-3 ${compact ? "md:grid-cols-[1fr_1.4fr_auto]" : "md:grid-cols-[1fr_1.6fr_0.7fr_auto]"}`}>
 
         <div>
           <label className="label">محل تحویل و بازگشت</label>
@@ -103,7 +103,10 @@ export default function SearchForm({
           </div>
         )}
 
-        <button onClick={submit} className="btn btn-primary h-[46px] px-8">جست‌وجوی خودرو</button>
+        <div>
+          {!compact && <label className="label invisible">جست‌وجو</label>}
+          <button onClick={submit} className="btn btn-primary h-[46px] w-full px-8">جست‌وجوی خودرو</button>
+        </div>
       </div>
 
       {!compact && (

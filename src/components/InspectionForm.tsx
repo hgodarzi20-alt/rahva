@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toman } from "@/lib/format";
 
-interface Draft { title: string; location: string; estimateAmount: string }
+interface Draft { title: string; estimateAmount: string }
 
 /**
  * بازرسی مقایسه‌ای — استوری ۵.۱.
@@ -21,7 +21,6 @@ export default function InspectionForm({
   const router = useRouter();
   const [items, setItems] = useState<Draft[]>([]);
   const [title, setTitle] = useState("");
-  const [location, setLocation] = useState("");
   const [amount, setAmount] = useState("");
   const [fault, setFault] = useState<"self" | "other_party" | "unknown" | "">("");
   const [error, setError] = useState("");
@@ -31,23 +30,29 @@ export default function InspectionForm({
 
   function add() {
     if (!title.trim() || !(Number(amount) > 0)) {
-      return setError("عنوان و مبلغ برآوردی هر قلم لازم است.");
+      return setError("فیلد خسارت و مبلغ برآوردی هر قلم لازم است.");
     }
     setError("");
-    setItems([...items, { title: title.trim(), location: location.trim(), estimateAmount: amount }]);
-    setTitle(""); setLocation(""); setAmount("");
+    setItems([...items, { title: title.trim(), estimateAmount: amount }]);
+    setTitle(""); setAmount("");
   }
 
   async function submit() {
-    if (!items.length) return setError("حداقل یک قلم خسارت ثبت کنید.");
+    // ردیف نیمه‌پرشده‌ای که «افزودن» نخورده را هم قبل از ثبت لحاظ کن
+    const pending = title.trim() && Number(amount) > 0
+      ? [{ title: title.trim(), estimateAmount: amount }] : [];
+    const list = [...items, ...pending];
+
+    if (!list.length) return setError("حداقل یک قلم خسارت ثبت کنید.");
     if (!fault) return setError("مقصر حادثه را تعیین کنید.");
+    if (pending.length) { setItems(list); setTitle(""); setAmount(""); }
     setBusy(true); setError("");
     const res = await fetch(`/api/staff/incidents/${code}/inspection`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         confirmedFault: fault,
-        damages: items.map((i) => ({ ...i, estimateAmount: Number(i.estimateAmount) })),
+        damages: list.map((i) => ({ ...i, estimateAmount: Number(i.estimateAmount) })),
       }),
     });
     const data = await res.json();
@@ -79,7 +84,7 @@ export default function InspectionForm({
 
       <section className="card p-5">
         <div className="flex items-center justify-between">
-          <b className="text-[13px]">خسارت‌های جدید</b>
+          <b className="text-[13px]">برآورد کارشناسی خسارت</b>
           <span className="badge badge-danger">{items.length ? `${items.length} مورد` : "ثبت نشده"}</span>
         </div>
 
@@ -87,7 +92,7 @@ export default function InspectionForm({
           <div className="mt-3 flex flex-col gap-1.5">
             {items.map((d, i) => (
               <div key={i} className="flex items-center gap-2 rounded border border-line px-3 py-2 text-[13px]">
-                <span className="flex-1">{d.title}{d.location ? ` — ${d.location}` : ""}</span>
+                <span className="flex-1">{d.title}</span>
                 <span className="mono">{toman(Number(d.estimateAmount))}</span>
                 <button className="btn btn-text text-[12px]"
                   onClick={() => setItems(items.filter((_, j) => j !== i))}>حذف</button>
@@ -96,16 +101,15 @@ export default function InspectionForm({
           </div>
         )}
 
-        <div className="mt-3 grid gap-2 sm:grid-cols-[1.2fr_1fr_1fr_auto]">
-          <input className="input" placeholder="عنوان خسارت" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <input className="input" placeholder="محل" value={location} onChange={(e) => setLocation(e.target.value)} />
+        <div className="mt-3 grid gap-2 sm:grid-cols-[2fr_1fr_auto]">
+          <input className="input" placeholder="فیلد خسارت — مثلاً: آسیب به درب راست" value={title} onChange={(e) => setTitle(e.target.value)} />
           <input className="input mono" inputMode="numeric" placeholder="برآورد تعمیر"
             value={amount} onChange={(e) => setAmount(e.target.value)} />
           <button className="btn" onClick={add}>افزودن</button>
         </div>
 
         <div className="mt-4 flex items-baseline justify-between border-t border-line pt-3">
-          <b className="text-[13px]">برآورد کل خسارت</b>
+          <b className="text-[13px]">جمع برآورد کارشناسی</b>
           <b className="text-[17px]">{toman(gross)}</b>
         </div>
         <p className="hint">از مجموع اقلام محاسبه می‌شود و قابل ورود دستی نیست.</p>

@@ -90,6 +90,7 @@ export default function InvoiceBuilder({
             <label className="label">امداد و حمل با خودروبر</label>
             <input className="input mono" inputMode="numeric" placeholder="۰"
               value={towing} onChange={(e) => setTowing(e.target.value)} />
+            <p className="hint">فقط اگر خودروبر واقعاً اعزام شده باشد.</p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -97,6 +98,7 @@ export default function InvoiceBuilder({
               <label className="label">خواب خودرو — تعداد روز</label>
               <input className="input mono" inputMode="numeric"
                 value={downtimeDays} onChange={(e) => setDowntimeDays(e.target.value)} />
+              <p className="hint">روزهایی که خودرو از چرخه اجاره خارج بوده.</p>
             </div>
             <div>
               <label className="label">نرخ روزانه خواب خودرو</label>
@@ -110,7 +112,10 @@ export default function InvoiceBuilder({
             <label className="label">پارکینگ — تعداد روز</label>
             <input className="input mono" inputMode="numeric"
               value={parkingDays} onChange={(e) => setParkingDays(e.target.value)} />
-            <p className="hint">نرخ روزانه {toman(parkingDailyRate)} · جمع {toman(parking)}</p>
+            <p className="hint">
+              فقط اگر خودرو در پارکینگ پلیس یا انبار شرکت مانده — معمولاً حداکثر سه روز.
+              نرخ روزانه {toman(parkingDailyRate)} · جمع {toman(parking)}
+            </p>
           </div>
         </div>
 

@@ -37,6 +37,7 @@ export default async function StaffIncidentsPage() {
             <th className="p-3 font-semibold">نوع</th>
             <th className="p-3 font-semibold">کروکی</th>
             <th className="p-3 font-semibold">وضعیت</th>
+            <th className="p-3 font-semibold">روز از بازرسی</th>
             <th className="p-3 font-semibold">سهم مستأجر</th>
             <th className="p-3" />
           </tr>
@@ -46,6 +47,10 @@ export default async function StaffIncidentsPage() {
             const share = (c.invoice?.items ?? [])
               .filter((i: any) => i.type !== "rental_credit")
               .reduce((s: number, i: any) => s + i.amount, 0);
+            // چند روز از تکمیل بازرسی گذشته — بدون منطق مهلت، فقط برای دیده‌شدن پرونده‌های فراموش‌شده
+            const daysSinceInspection = c.status === "under_assessment" && c.invoice?.createdAt
+              ? Math.floor((Date.now() - new Date(c.invoice.createdAt).getTime()) / 86_400_000)
+              : null;
             return (
               <tr key={c.id} className="border-b border-line-2 last:border-0">
                 <td className="mono p-3">{c.trackingCode}</td>
@@ -61,6 +66,9 @@ export default async function StaffIncidentsPage() {
                     : <span className="badge">—</span>}
                 </td>
                 <td className="p-3"><span className="badge">{STATUS_FA[c.status as IncidentStatus]}</span></td>
+                <td className="mono p-3">
+                  {daysSinceInspection === null ? "—" : `${toFaDigits(daysSinceInspection)} روز`}
+                </td>
                 <td className="mono p-3">{c.invoice?.items?.length ? toman(share) : "—"}</td>
                 <td className="p-3">
                   <Link href={`/staff/incidents/${c.trackingCode}`} className="btn btn-sm">بازکردن</Link>

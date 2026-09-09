@@ -69,6 +69,17 @@ export async function POST(req: Request) {
     },
   });
 
+  // پیامک شبیه‌سازی‌شده — کد پیگیری و لینک صفحه پرونده، استوری ۷.۲
+  await prisma.notificationLog.create({
+    data: {
+      kind: "incident_created",
+      recipient: String(session.userId),
+      body: `رهوا — پرونده حادثه ${incident.trackingCode} ثبت شد. پیگیری: /incident/${incident.trackingCode}`,
+      bookingId: booking.id,
+      incidentId: incident.id,
+    },
+  });
+
   await logEvent("incident_reported", {
     userId: session.userId, bookingId: booking.id, vehicleId: booking.vehicleId,
   });

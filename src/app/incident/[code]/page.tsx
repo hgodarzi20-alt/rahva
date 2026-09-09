@@ -9,7 +9,7 @@ import { settleExpiredEstimate } from "@/lib/incident-deadline";
 import { totals } from "@/lib/settlement";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { STATUS_FA, INCIDENT_TYPE_FA, POLICE_REPORT_FA, type IncidentStatus } from "@/lib/incident";
+import { CUSTOMER_STATUS_FA, INCIDENT_TYPE_FA, POLICE_REPORT_FA, type IncidentStatus } from "@/lib/incident";
 import { toman, vehicleName, toFaDigits } from "@/lib/format";
 import { formatJalali } from "@/lib/jalali";
 
@@ -59,7 +59,7 @@ export default async function IncidentPage({ params }: { params: { code: string 
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <h1 className="mono text-xl font-bold">{incident.trackingCode}</h1>
-          <span className="badge badge-brand">{STATUS_FA[status]}</span>
+          <span className="badge badge-brand">{CUSTOMER_STATUS_FA[status]}</span>
         </div>
         <p className="mt-1.5 text-[13px] text-ink-3">
           {incident.type ? INCIDENT_TYPE_FA[incident.type as keyof typeof INCIDENT_TYPE_FA] : "در انتظار تعیین نوع"}
@@ -121,6 +121,29 @@ export default async function IncidentPage({ params }: { params: { code: string 
                   <p>
                     مطابق پذیرشی که ثبت کرده‌اید، بدون کروکی بیمه بدنه پرداختی ندارد و
                     جبران خسارت بر عهده شماست.
+                  </p>
+                </div>
+              )}
+
+              {status !== "reported" && incident.policeImpounded && (
+                <div className="blk blk-warn">
+                  <h4>خودرو در پارکینگ پلیس است</h4>
+                  <p>
+                    پرونده منتظر ترخیص خودرو از پارکینگ است؛ نیازی نیست خودرو را جایی ببرید.
+                    شرکت پس از ترخیص با شما هماهنگ می‌کند.
+                  </p>
+                </div>
+              )}
+
+              {status !== "reported" && incident.policeImpounded === false && (
+                <div className="blk blk-info">
+                  <h4>بازگرداندن خودرو</h4>
+                  <p>
+                    {incident.recoveryMethod === "user_delivers"
+                      ? "طبق هماهنگی با پشتیبانی، خودرو را خودتان به شعبه تحویل می‌دهید."
+                      : incident.recoveryMethod === "agent_pickup"
+                        ? "طبق هماهنگی با پشتیبانی، مأمور شرکت برای تحویل خودرو اعزام می‌شود."
+                        : "برای هماهنگی روش بازگرداندن خودرو با پشتیبانی رهوا تماس بگیرید."}
                   </p>
                 </div>
               )}
